@@ -1,2 +1,94 @@
 @import "tailwindcss";
- 
+
+/* =============================================
+   BATLIFE — DESIGN TOKENS (dark par défaut)
+   ============================================= */
+
+:root,
+[data-theme="dark"] {
+  /* Fonds */
+  --bg-app:        linear-gradient(160deg, #060d1f 0%, #0b1a35 35%, #0d1025 65%, #080f20 100%);
+  --bg-card:       rgba(255,255,255,0.04);
+  --bg-card-inner: rgba(0,0,0,0.2);
+  --bg-input:      rgba(255,255,255,0.06);
+
+  /* Bordures */
+  --border-card:   0.5px solid rgba(255,255,255,0.1);
+  --border-top:    0.5px solid rgba(255,255,255,0.18);
+  --border-input:  0.5px solid rgba(255,255,255,0.15);
+  --border-inner:  0.5px solid rgba(255,255,255,0.06);
+
+  /* Textes */
+  --text-primary:  #ffffff;
+  --text-secondary: rgba(148,197,240,0.55);
+  --text-muted:    rgba(148,197,240,0.38);
+  --text-label:    rgba(148,197,240,0.5);
+
+  /* Accents (inchangés dark/light) */
+  --accent-cyan:   #38bdf8;
+  --accent-violet: #818cf8;
+  --accent-green:  #4ade80;
+  --accent-orange: #fb923c;
+  --accent-yellow: #facc15;
+  --accent-red:    #f87171;
+  --accent-purple: #c084fc;
+
+  /* Navigation */
+  --nav-bg:        rgba(8,16,32,0.85);
+  --nav-border:    rgba(255,255,255,0.08);
+
+  /* Header */
+  --header-bg:     rgba(10,20,40,0.75);
+  --header-border: rgba(255,255,255,0.08);
+
+  /* Ombres */
+  --shadow-card:   none;
+}
+
+[data-theme="light"] {
+  /* Fonds */
+  --bg-app:        linear-gradient(160deg, #e8f4fd 0%, #ddeefa 40%, #eaf6ff 100%);
+  --bg-card:       rgba(255,255,255,0.75);
+  --bg-card-inner: rgba(56,130,200,0.06);
+  --bg-input:      rgba(255,255,255,0.9);
+
+  /* Bordures */
+  --border-card:   0.5px solid rgba(56,130,200,0.18);
+  --border-top:    0.5px solid rgba(255,255,255,0.95);
+  --border-input:  0.5px solid rgba(56,130,200,0.25);
+  --border-inner:  0.5px solid rgba(56,130,200,0.12);
+
+  /* Textes */
+  --text-primary:  #0f2d52;
+  --text-secondary: rgba(30,80,140,0.6);
+  --text-muted:    rgba(30,80,140,0.4);
+  --text-label:    rgba(30,80,140,0.55);
+
+  /* Accents légèrement assombris pour lisibilité */
+  --accent-cyan:   #0284c7;
+  --accent-violet: #6366f1;
+  --accent-green:  #16a34a;
+  --accent-orange: #ea580c;
+  --accent-yellow: #ca8a04;
+  --accent-red:    #dc2626;
+  --accent-purple: #9333ea;
+
+  /* Navigation */
+  --nav-bg:        rgba(255,255,255,0.85);
+  --nav-border:    rgba(56,130,200,0.15);
+
+  /* Header */
+  --header-bg:     rgba(255,255,255,0.8);
+  --header-border: rgba(56,130,200,0.15);
+
+  /* Ombres */
+  --shadow-card:   0 2px 16px rgba(56,130,200,0.1);
+}
+
+/* Application du fond sur body */
+body {
+  background: var(--bg-app);
+  min-height: 100vh;
+  color: var(--text-primary);
+  transition: background 0.3s ease, color 0.2s ease;
+}

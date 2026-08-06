@@ -8,14 +8,19 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
+      // ✅ On utilise notre propre SW au lieu du SW auto-généré
+      strategies: 'injectManifest',
+      srcDir: 'public',
+      filename: 'sw.js',
+
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'icons/*.png'],
       manifest: {
         name: 'BatLife',
         short_name: 'BatLife',
         description: 'Optimisation de batterie pour VAE et trottinettes',
-        theme_color: '#18181b',
-        background_color: '#18181b',
+        theme_color: '#0a1830',
+        background_color: '#0a1830',
         display: 'standalone',
         orientation: 'portrait',
         scope: '/',
@@ -37,22 +42,11 @@ export default defineConfig({
       },
       devOptions: {
         enabled: true,
+        type: 'module',
       },
     }),
   ],
   build: {
     chunkSizeWarningLimit: 1000,
-    rolldownOptions: {
-      output: {
-        advancedChunks: {
-          groups: [
-            {
-              name: 'vendor',
-              test: /node_modules[\\/](react|react-dom)/,
-            }
-          ]
-        }
-      }
-    }
   }
-}) // ✅ accolade + parenthèse fermante de defineConfig
+})

@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /static/
+Disallow: /node_modules/
+
+Sitemap: https://batlife.app/sitemap.xml

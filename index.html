@@ -1,11 +1,171 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr" id="htmlRoot">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>batlife-react</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+
+    <!-- ============================================================
+         FAVICON & PWA
+    ============================================================ -->
+    <link rel="icon" type="image/png" href="/icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <link rel="shortcut icon" href="/icons/icon-192.png" type="image/png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="BatLife" />
+    <meta name="application-name" content="BatLife" />
+    <meta name="theme-color" content="#0ea5e9" />
+    <meta name="msapplication-TileColor" content="#0ea5e9" />
+    <meta name="msapplication-TileImage" content="/icons/icon-192.png" />
+
+    <!-- ============================================================
+         SEO PRINCIPAL
+    ============================================================ -->
+    <title>BatLife - Optimiseur de Batterie pour VAE & Trottinettes Électriques</title>
+    <meta name="title" content="BatLife - Optimiseur de Batterie pour VAE & Trottinettes Électriques" />
+    <meta name="description" content="BatLife optimise et prolonge la durée de vie des batteries Li-Ion de vélos électriques (VAE) et trottinettes. Suivi de charge intelligent, calibration précise, coach batterie, multi-batterie, conseils d'hivernage. Gratuit et sans inscription." />
+    <meta name="keywords" content="batterie vélo électrique, VAE, trottinette électrique, optimisation batterie, Li-Ion, BMS, charge batterie, durée de vie batterie, calibration batterie, hivernage batterie, coach batterie, application batterie, PWA vélo électrique, autonomie VAE" />
+    <meta name="author" content="BatLife" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <meta name="googlebot" content="index, follow" />
+    <meta name="rating" content="general" />
+    <meta name="distribution" content="global" />
+    <meta name="revisit-after" content="7 days" />
+    <meta name="language" content="French" />
+
+    <!-- ============================================================
+         CANONICAL & HREFLANG
+    ============================================================ -->
+    <link rel="canonical" href="https://batlife.app/" />
+    <link rel="alternate" hreflang="fr" href="https://batlife.app/" />
+    <link rel="alternate" hreflang="en" href="https://batlife.app/?lang=en" />
+    <link rel="alternate" hreflang="es" href="https://batlife.app/?lang=es" />
+    <link rel="alternate" hreflang="de" href="https://batlife.app/?lang=de" />
+    <link rel="alternate" hreflang="x-default" href="https://batlife.app/" />
+
+    <!-- ============================================================
+         OPEN GRAPH
+    ============================================================ -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="BatLife" />
+    <meta property="og:url" content="https://batlife.app/" />
+    <meta property="og:title" content="BatLife - Optimiseur de Batterie pour VAE & Trottinettes" />
+    <meta property="og:description" content="Prolongez la durée de vie de votre batterie de vélo électrique ou trottinette grâce à un suivi intelligent, des conseils personnalisés et un coach batterie." />
+    <meta property="og:image" content="https://batlife.app/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="BatLife - Application d'optimisation de batterie VAE" />
+    <meta property="og:locale" content="fr_FR" />
+    <meta property="og:locale:alternate" content="en_GB" />
+    <meta property="og:locale:alternate" content="es_ES" />
+    <meta property="og:locale:alternate" content="de_DE" />
+
+    <!-- ============================================================
+         TWITTER CARD
+    ============================================================ -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@batlife" />
+    <meta name="twitter:url" content="https://batlife.app/" />
+    <meta name="twitter:title" content="BatLife - Optimiseur de Batterie VAE & Trottinettes" />
+    <meta name="twitter:description" content="Prolongez la vie de votre batterie avec un suivi intelligent, calibration et coach batterie. Gratuit, sans inscription." />
+    <meta name="twitter:image" content="https://batlife.app/og-image.jpg" />
+    <meta name="twitter:image:alt" content="BatLife - Optimisation de batterie" />
+
+    <!-- ============================================================
+         DONNÉES STRUCTURÉES JSON-LD
+    ============================================================ -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "BatLife",
+      "alternateName": "BatLife - Battery Optimizer",
+      "description": "Application d'optimisation de batterie pour vélos électriques et trottinettes. Suivi de charge, calibration, coach batterie, conseils d'hivernage et multi-batterie.",
+      "url": "https://batlife.app/",
+      "applicationCategory": "UtilitiesApplication",
+      "applicationSubCategory": "Battery Management",
+      "operatingSystem": "Any (PWA)",
+      "browserRequirements": "Requires JavaScript. Requires HTML5.",
+      "softwareVersion": "1.0.0",
+      "inLanguage": ["fr", "en", "es", "de"],
+      "isAccessibleForFree": true,
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "EUR",
+        "availability": "https://schema.org/InStock"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "BatLife",
+        "url": "https://batlife.app/"
+      },
+      "featureList": [
+        "Suivi de charge intelligent",
+        "Calibration précise de la batterie",
+        "Coach batterie personnalisé",
+        "Gestion multi-batterie",
+        "Conseils d'hivernage",
+        "Journal d'entretien",
+        "Statistiques détaillées",
+        "Système de badges",
+        "Mode multilingue FR/EN/ES/DE",
+        "Fonctionne hors-ligne (PWA)"
+      ]
+    }
+    </script>
+
+    <!-- FAQ pour Google -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Comment prolonger la durée de vie de ma batterie de vélo électrique ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Restez entre 20% et 80% de charge, évitez les charges complètes prolongées, laissez refroidir la batterie 30 min avant de la charger, et stockez-la à 50% en hiver entre 15 et 20°C."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "BatLife est-il gratuit ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Oui, BatLife est 100% gratuit, sans inscription ni publicité. Toutes les données sont stockées uniquement sur votre téléphone."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Comment hiverner une batterie de vélo électrique ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Stockez votre batterie à environ 50% (entre 40% et 60%), dans un endroit sec et tempéré entre 15-20°C. Vérifiez le niveau tous les 2 mois."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Peut-on laisser une batterie de VAE en charge toute la nuit ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Ce n'est pas recommandé. Privilégiez une charge en votre présence et débranchez dès la cible atteinte. BatLife vous envoie une notification quand c'est le moment."
+          }
+        }
+      ]
+    }
+    </script>
+
+    <!-- ============================================================
+         PRÉCONNEXIONS (performance)
+    ============================================================ -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://buymeacoffee.com" />
+
   </head>
+
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>

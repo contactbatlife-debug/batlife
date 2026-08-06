@@ -19,11 +19,11 @@ const STORAGE_KEY_V6      = "bl_app_v6";
    BASE DE DONNÉES TENSIONS
    ============================================================ */
 const VOLTAGE_DATABASE = {
-  36: { min:30.0, max:42.0, storage:37.8, daily:40.0, course:41.5 },
-  48: { min:40.0, max:54.6, storage:51.0, daily:51.7, course:54.0 },
-  52: { min:44.0, max:58.8, storage:55.0, daily:55.8, course:58.2 },
-  60: { min:50.0, max:67.2, storage:62.0, daily:63.8, course:66.5 },
-  72: { min:60.0, max:84.0, storage:75.0, daily:79.2, course:83.0 }
+  36: { min: 30.0, max: 42.0, storage: 37.8, daily: 40.0, course: 41.5 },
+  48: { min: 40.0, max: 54.6, storage: 47.3, daily: 51.7, course: 54.0 },
+  52: { min: 44.0, max: 58.8, storage: 51.4, daily: 55.8, course: 58.2 },
+  60: { min: 50.0, max: 67.2, storage: 58.6, daily: 63.8, course: 66.5 },
+  72: { min: 60.0, max: 84.0, storage: 72.0, daily: 79.2, course: 83.0 },
 };
 
 /* ============================================================

@@ -1,9 +1,23 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { vdb } from "../services/calculs";
+
+// ✅ Demande la persistance du stockage (protège contre l'éviction iOS/Chrome)
+async function ensurePersistence() {
+  if (!navigator.storage?.persist) return;
+  const persisted = await navigator.storage.persisted();
+  if (!persisted) await navigator.storage.persist();
+}
+
+// ✅ Détecte iOS Safari en mode non-installé (PWA non ajoutée à l'écran d'accueil)
+function isIOSSafariNotInstalled() {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  const isStandalone = window.navigator.standalone === true;
+  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  return isIOS && isSafari && !isStandalone;
+}
 
 const AppContext = createContext();
 
-// Profil par défaut
 const defaultProfile = {
   vehicle: "duotts_c29",
   customName: "Ma Batterie",
@@ -14,31 +28,33 @@ const defaultProfile = {
   lang: "fr"
 };
 
-// Calibration par défaut
+// Clés localStorage liées à une charge active
+const ACTIVE_CHARGE_KEYS = [
+  "bl_active_v5",
+  "bl_rest_end_ts",
+  "bl_rest_charge_snapshot",
+  "bl_rest_notified_for_end_ts",
+];
+
+function clearAllChargeKeys() {
+  ACTIVE_CHARGE_KEYS.forEach(k => localStorage.removeItem(k));
+}
+
 function defaultCalibration(nominalVoltage) {
   const d = vdb(nominalVoltage);
-  return {
-    daily: d.daily,
-    course: d.course,
-    storage: d.storage
-  };
+  return { daily: d.daily, course: d.course, storage: d.storage };
 }
 
 export function AppProvider({ children }) {
-  // ==========================================
-  // 🚲 1. INITIALISATION DES ÉTATS (CONTEXTE)
-  // ==========================================
 
-  // Multi-batteries (Étape E)
   const [batteries, setBatteries] = useState(() => {
     const saved = localStorage.getItem("bl_batteries_v6");
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.length > 0) return parsed;
-      } catch (e) { /* Fallback */ }
+      } catch { /* Fallback */ }
     }
-    // Par défaut, si vide, on crée la première batterie à partir du profil initial
     return [{ id: 1, name: "Ma Batterie", profile: defaultProfile, history: [], calibration: defaultCalibration(48) }];
   });
 
@@ -47,63 +63,95 @@ export function AppProvider({ children }) {
     return saved ? Number(saved) : 1;
   });
 
-  // Profil (Synchronisé sur la batterie active)
   const [profile, setProfile] = useState(() => {
     const currentBat = batteries.find(b => b.id === (Number(localStorage.getItem("bl_active_battery_id_v6")) || 1)) || batteries[0];
     return currentBat?.profile || defaultProfile;
   });
 
-  // Calibration (Synchronisée sur la batterie active)
   const [calibration, setCalibration] = useState(() => {
     const currentBat = batteries.find(b => b.id === (Number(localStorage.getItem("bl_active_battery_id_v6")) || 1)) || batteries[0];
     return currentBat?.calibration || defaultCalibration(profile.nominalVoltage);
   });
 
-  // Historique (Synchronisé sur la batterie active)
   const [history, setHistory] = useState(() => {
     const currentBat = batteries.find(b => b.id === (Number(localStorage.getItem("bl_active_battery_id_v6")) || 1)) || batteries[0];
     return currentBat?.history || [];
   });
 
-  // Charge active
-  const [activeCharge, setActiveCharge] = useState(() => {
+  const [activeCharge, setActiveChargeState] = useState(() => {
     const saved = localStorage.getItem("bl_active_v5");
     try { return saved ? JSON.parse(saved) : null; } catch { return null; }
   });
 
-  // Température ambiante
   const [temperature, setTemperature] = useState(() => {
     const saved = localStorage.getItem("bl_temperature_v6");
     try { return saved !== null ? JSON.parse(saved) : 20; } catch { return 20; }
   });
 
-  // Mode de charge et Toast
   const [chargeMode, setChargeMode] = useState("daily");
   const [toast, setToast] = useState(null);
+  const [showIOSBanner, setShowIOSBanner] = useState(false);
 
- // ==========================================
-  // 💾 2. SAUVEGARDES ET SYNCHRONISATIONS (EFFECTS)
-  // ==========================================
+  // ✅ Au démarrage : persistence + bandeau iOS + rappel sauvegarde
+  useEffect(() => {
+    // Demander la persistance du stockage
+    ensurePersistence();
 
-  // Sauvegarde centrale de l'ID actif
+    // Bandeau iOS — affiché une seule fois si jamais fermé
+    if (isIOSSafariNotInstalled()) {
+      const dismissed = localStorage.getItem("bl_ios_banner_dismissed");
+      if (!dismissed) setShowIOSBanner(true);
+    }
+  }, []);
+
+  // ✅ Rappel sauvegarde — après 10 sessions sans backup depuis 30 jours
+  useEffect(() => {
+    if (history.length < 10) return;
+    const lastBackup = +(localStorage.getItem("bl_last_backup_reminder") || 0);
+    const daysSince = (Date.now() - lastBackup) / 86400000;
+    if (daysSince > 30) {
+      setTimeout(() => {
+        showToast({
+          text: "💾 Pensez à sauvegarder votre historique : Outils → Export JSON",
+          variant: "warning"
+        });
+        localStorage.setItem("bl_last_backup_reminder", Date.now().toString());
+      }, 3000);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [history.length]);
+
+  // ✅ setActiveCharge enrichi : si null, nettoie TOUTES les clés de repos atomiquement
+  const setActiveCharge = useCallback((value) => {
+    if (value === null) {
+      clearAllChargeKeys();
+    }
+    setActiveChargeState(value);
+  }, []);
+
+  // Sauvegarde de l'ID actif
   useEffect(() => {
     localStorage.setItem("bl_active_battery_id_v6", activeBatteryId.toString());
   }, [activeBatteryId]);
 
-  // Sauvegarde et synchronisation atomique de TOUTE la flotte
   useEffect(() => {
-    const updatedBatteries = batteries.map(b => 
-      b.id === activeBatteryId 
-        ? { ...b, profile, calibration, history } 
-        : b
-    );
-    localStorage.setItem("bl_batteries_v6", JSON.stringify(updatedBatteries));
+    setBatteries(prev => {
+      const updatedBatteries = prev.map(b =>
+        b.id === activeBatteryId
+          ? { ...b, profile, calibration, history }
+          : b
+      );
+      localStorage.setItem("bl_batteries_v6", JSON.stringify(updatedBatteries));
+      return updatedBatteries;
+    });
   }, [profile, calibration, history, activeBatteryId]);
 
-  // Charge active globale
+  // Charge active — sauvegarde uniquement si non null
   useEffect(() => {
-    if (activeCharge) localStorage.setItem("bl_active_v5", JSON.stringify(activeCharge));
-    else localStorage.removeItem("bl_active_v5");
+    if (activeCharge) {
+      localStorage.setItem("bl_active_v5", JSON.stringify(activeCharge));
+    }
+    // ✅ La suppression est gérée dans setActiveCharge directement (atomique)
   }, [activeCharge]);
 
   // Température
@@ -111,11 +159,6 @@ export function AppProvider({ children }) {
     localStorage.setItem("bl_temperature_v6", JSON.stringify(temperature));
   }, [temperature]);
 
-  // ==========================================
-  // ⚙️ 3. ACTIONS GESTION FLOTTE (ÉTAPE E)
-  // ==========================================
-
-  // Changer de batterie active
   function switchBattery(id) {
     const target = batteries.find(b => b.id === id);
     if (!target) return;
@@ -125,32 +168,27 @@ export function AppProvider({ children }) {
     setHistory(target.history || []);
   }
 
-  // Ajouter une nouvelle batterie à la flotte
   function addBattery(name) {
     const newId = batteries.length > 0 ? Math.max(...batteries.map(b => b.id)) + 1 : 1;
     const newBat = {
       id: newId,
-      name: name,
+      name,
       profile: { ...defaultProfile, customName: name },
       calibration: defaultCalibration(defaultProfile.nominalVoltage),
       history: []
     };
-    const updated = [...batteries, newBat];
-    setBatteries(updated);
-    // Bascule automatique sur la nouvelle
+    setBatteries(prev => [...prev, newBat]);
     setActiveBatteryId(newId);
     setProfile(newBat.profile);
     setCalibration(newBat.calibration);
     setHistory(newBat.history);
   }
 
-  // Supprimer une batterie de la flotte
   function deleteBattery(id) {
     if (batteries.length <= 1) return;
     const updated = batteries.filter(b => b.id !== id);
     setBatteries(updated);
     if (activeBatteryId === id) {
-      // Si on supprime la batterie courante, on bascule sur la première restante
       const fallback = updated[0];
       setActiveBatteryId(fallback.id);
       setProfile(fallback.profile);
@@ -159,28 +197,20 @@ export function AppProvider({ children }) {
     }
   }
 
-  // ==========================================
-  // 📝 4. ACTIONS SECONDAIRES
-  // ==========================================
-
   function addToHistory(entry) {
     setHistory(prev => [entry, ...prev].slice(0, 200));
   }
 
-  // Met à jour le profil (Version corrigée Multi-batteries)
   function updateProfile(newProfile) {
     setProfile(newProfile);
-    
     let updatedCalibration = calibration;
     if (newProfile.nominalVoltage !== profile.nominalVoltage) {
       updatedCalibration = defaultCalibration(newProfile.nominalVoltage);
       setCalibration(updatedCalibration);
     }
-
-    // On force la synchronisation immédiate dans le tableau des batteries
-    setBatteries(prev => prev.map(b => 
-      b.id === activeBatteryId 
-        ? { ...b, profile: newProfile, calibration: updatedCalibration } 
+    setBatteries(prev => prev.map(b =>
+      b.id === activeBatteryId
+        ? { ...b, profile: newProfile, calibration: updatedCalibration }
         : b
     ));
   }
@@ -192,16 +222,13 @@ export function AppProvider({ children }) {
   function showToast(badge) { setToast(badge); }
   function hideToast() { setToast(null); }
 
-  // ==========================================
-  // 💾 5. EXPORT / IMPORT JSON INTÉGRÉ
-  // ==========================================
-  
+  function dismissIOSBanner() {
+    localStorage.setItem("bl_ios_banner_dismissed", "1");
+    setShowIOSBanner(false);
+  }
+
   function exportBackup() {
-    const backup = { 
-      exportedAt: new Date().toISOString(), 
-      version: "6.0", 
-      data: {} 
-    };
+    const backup = { exportedAt: new Date().toISOString(), version: "6.0", data: {} };
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (!key || !key.startsWith("bl_")) continue;
@@ -209,8 +236,11 @@ export function AppProvider({ children }) {
       catch { backup.data[key] = localStorage.getItem(key); }
     }
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-    a.download = "batlife-sauvegarde.json"; a.click(); URL.revokeObjectURL(a.href);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "batlife-sauvegarde.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
   }
 
   function importBackup(file, onSuccess, onError) {
@@ -223,8 +253,6 @@ export function AppProvider({ children }) {
             localStorage.setItem(key, JSON.stringify(p.data[key]));
           });
         }
-
-        // Forcer immédiatement la ré-actualisation de l'état en mémoire
         const savedBats = localStorage.getItem("bl_batteries_v6");
         const savedActiveId = localStorage.getItem("bl_active_battery_id_v6");
         const savedTemp = localStorage.getItem("bl_temperature_v6");
@@ -233,7 +261,6 @@ export function AppProvider({ children }) {
         if (savedActiveId) setActiveBatteryId(Number(savedActiveId));
         if (savedTemp) setTemperature(JSON.parse(savedTemp));
 
-        // Forcer le recalage de la batterie active après importation
         const currentId = savedActiveId ? Number(savedActiveId) : 1;
         const list = savedBats ? JSON.parse(savedBats) : [];
         const currentBat = list.find(b => b.id === currentId) || list[0];
@@ -242,58 +269,29 @@ export function AppProvider({ children }) {
           setCalibration(currentBat.calibration || defaultCalibration(48));
           setHistory(currentBat.history || []);
         }
-
         onSuccess();
-      } catch (e) { 
+      } catch (e) {
         console.error(e);
-        onError(); 
+        onError();
       }
     };
     r.readAsText(file);
   }
 
-  // Valeurs injectées dans toute l'application
   const value = {
-    batteries,
-    activeBatteryId,
-    switchBattery,
-    addBattery,
-    deleteBattery,
-
-    profile,
-    setProfile,
-    updateProfile,
-    setLang,
-
-    calibration,
-    setCalibration,
-
-    history,
-    setHistory,
-    addToHistory,
-
-    activeCharge,
-    setActiveCharge,
-
-    temperature,
-    setTemperature,
-
-    chargeMode,
-    setChargeMode,
-
-    toast,
-    showToast,
-    hideToast,
-
-    exportBackup,
-    importBackup
+    batteries, activeBatteryId, switchBattery, addBattery, deleteBattery,
+    profile, setProfile, updateProfile, setLang,
+    calibration, setCalibration,
+    history, setHistory, addToHistory,
+    activeCharge, setActiveCharge,
+    temperature, setTemperature,
+    chargeMode, setChargeMode,
+    toast, showToast, hideToast,
+    exportBackup, importBackup,
+    showIOSBanner, dismissIOSBanner,
   };
 
-  return (
-    <AppContext.Provider value={value}>
-      {children}
-    </AppContext.Provider>
-  );
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 
 export function useApp() {

@@ -1,269 +1,422 @@
 import { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import { calculerProgression } from "../services/charge";
-import { fmt } from "../services/calculs";
-import { checkBadges } from "../services/badges";
+import { fmt, v2p, p2v } from "../services/calculs";
+import Tooltip from "../components/Tooltip";
+
+import {
+  startRestTimer, getRestTimeRemaining, getRestEndTs,
+  getRestChargeSnapshot, clearRestTimer, formatMMSS,
+  triggerRestNotificationOnce,
+} from "../services/restTimer";
+
+const REST_NOTIFIED_KEY = "bl_rest_notified_for_end_ts";
+
+const g = {
+  card: {
+    background:"rgba(255,255,255,0.04)",
+    border:"0.5px solid rgba(255,255,255,0.1)",
+    borderTop:"0.5px solid rgba(255,255,255,0.18)",
+    borderRadius:"18px",
+  },
+  inner: {
+    background:"rgba(255,255,255,0.03)",
+    border:"0.5px solid rgba(255,255,255,0.06)",
+    borderRadius:"10px",
+  },
+  label: { fontSize:"12px", color:"rgba(148,197,240,0.5)" },
+  value: { fontSize:"13px", fontWeight:600, color:"white" },
+};
 
 function ChargeActive({ t }) {
-  const {
-    activeCharge,
-    setActiveCharge,
-    addToHistory,
-    history,
-    profile,
-    showToast
-  } = useApp();
+  const { activeCharge, setActiveCharge, addToHistory, history, profile, showToast } = useApp();
 
   const [tick, setTick] = useState(0);
   const [alerteDeclenchee, setAlerteDeclenchee] = useState(false);
-  
-  // États pour la phase de repos (30 min) et la tension réelle
   const [enRepos, setEnRepos] = useState(false);
+  const [reposTermine, setReposTermine] = useState(false);
+  const [restRemainingMs, setRestRemainingMs] = useState(0);
   const [tensionReelleSaisie, setTensionReelleSaisie] = useState("");
+  const [valide, setValide] = useState(false);
 
-  // Met à jour toutes les secondes
+  const estExpert = profile?.level === "expert";
+  const nominalVoltage = profile?.nominalVoltage || 48;
+  const capacityAh = profile?.capacityAh || 15;
+
+  const tr = (key, fallback) => { const v = t?.(key); return v && v !== key ? v : fallback; };
+  const progression = activeCharge ? calculerProgression(activeCharge) : null;
+
+  // Ticker 1s
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTick((t) => t + 1);
-    }, 1000);
+    const interval = setInterval(() => setTick(v => v + 1), 1000);
     return () => clearInterval(interval);
   }, []);
 
-  if (!activeCharge) return null;
+  // Initialisation au montage
+  useEffect(() => {
+    if (valide) return;
 
-  const progression = calculerProgression(activeCharge);
-  if (!progression) return null;
+    const endTs = getRestEndTs();
+    if (!endTs) return;
 
-  const estExpert = profile.level === "expert";
+    const snapshot = getRestChargeSnapshot();
+    const remaining = getRestTimeRemaining();
 
-  // --- 🔔 EFFET : ALERTE FIN DE CHARGE (SON / VIBRATION / NOTIF) ---
-  if (progression.isComplete && !alerteDeclenchee) {
+    if (!activeCharge && snapshot && remaining > 0) {
+      setActiveCharge(snapshot);
+    }
+
+    setEnRepos(true);
     setAlerteDeclenchee(true);
 
-    // 1. Vibration du téléphone (si supporté par l'appareil)
-    if ("vibrate" in navigator) {
-      navigator.vibrate([500, 200, 500, 200, 500]); 
+    if (remaining <= 0) {
+      setReposTermine(true);
+      setRestRemainingMs(0);
+      const alreadyNotified = localStorage.getItem(REST_NOTIFIED_KEY);
+      if (String(alreadyNotified) !== String(endTs)) {
+        triggerRestNotificationOnce({
+          endTs,
+          title: tr("repos_termine_notification_title", "BatLife : repos terminé"),
+          body:  tr("repos_termine_notification_body", "Les 30 minutes de repos sont écoulées."),
+        });
+      }
+    } else {
+      setRestRemainingMs(remaining);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    // 2. Alerte Sonore (Bip synthétique universel)
-    try {
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-      oscillator.type = "sine";
-      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // Note LA (A5)
-      gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-      oscillator.start();
-      oscillator.stop(audioCtx.currentTime + 1.2); // Sonne pendant 1.2s
-    } catch (e) {
-      console.log("Audio non supporté ou bloqué par le navigateur");
-    }
+  // Countdown du repos
+  useEffect(() => {
+    if (!enRepos || reposTermine) return;
+    const interval = setInterval(() => {
+      const remaining = getRestTimeRemaining();
+      setRestRemainingMs(remaining);
+      if (remaining <= 0) {
+        setReposTermine(true);
+        setRestRemainingMs(0);
+        triggerRestNotificationOnce({
+          endTs: getRestEndTs(),
+          title: tr("repos_termine_notification_title", "BatLife : repos terminé"),
+          body:  tr("repos_termine_notification_body", "Les 30 minutes de repos sont écoulées."),
+        });
+        clearInterval(interval);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [enRepos, reposTermine, t]);
 
-    // 3. Notification Push sur l'écran
-    if ("Notification" in window && Notification.permission === "granted") {
-      new Notification("⚡ BatLife : Charge Terminée !", {
-        body: "Votre batterie a atteint sa cible. Vous pouvez la débrancher.",
-        icon: "🔋"
-      });
-    }
+  // Alerte fin de charge
+  useEffect(() => {
+    if (!progression?.isComplete || alerteDeclenchee || enRepos) return;
+    setAlerteDeclenchee(true);
+    setTimeout(() => {
+      if ("vibrate" in navigator) navigator.vibrate([500,200,500,200,500]);
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        gain.gain.setValueAtTime(0.5, ctx.currentTime);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 1.2);
+      } catch {}
+      if ("serviceWorker" in navigator && Notification.permission === "granted") {
+        navigator.serviceWorker.ready.then(reg => {
+          reg.showNotification("BatLife", {
+            body: t("charge_terminee"),
+            icon: "/icons/icon-192.png",
+            badge: "/icons/icon-192.png",
+          });
+        }).catch(() => {});
+      }
+    }, 0);
+  }, [progression, alerteDeclenchee, enRepos, t]);
+
+  if (valide) return null;
+  if (!activeCharge || !progression || !profile) return null;
+
+  function demanderPermissionNotification() {
+    if ("Notification" in window && Notification.permission === "default")
+      Notification.requestPermission().catch(() => {});
   }
 
-  // --- 🏁 ACTION : FIN DE CHARGE & PASSAGE AU REPOS ---
   function debrancher() {
-    // Au lieu de tout couper, on passe en mode repos pour attendre les 30 min de stabilisation
-    setEnRepos(true);
+    if (!activeCharge) return;
+    demanderPermissionNotification();
+    startRestTimer(activeCharge);
+    setEnRepos(true); setReposTermine(false); setAlerteDeclenchee(true);
+    const remaining = getRestTimeRemaining();
+    setRestRemainingMs(remaining);
+    if (remaining <= 0) setReposTermine(true);
   }
 
-  // --- 💾 ACTION : ENREGISTREMENT FINAL APRÈS REPOS (AVEC ÉCART V) ---
   function validerTensionReelle() {
-    const tensionV = parseFloat(tensionReelleSaisie) || progression.currentV;
-    const ecartCalculé = parseFloat((tensionV - activeCharge.targetV).toFixed(2));
-
-    const nouvelleSession = {
-      date: Date.now(),
-      vehicle: activeCharge.vehicle,
-      nominal: activeCharge.nominal,
-      mode: activeCharge.mode,
-      startV: activeCharge.startV,
-      startPct: activeCharge.startPct,
-      targetV: activeCharge.targetV,
-      targetPct: activeCharge.targetPct,
-      finalV: progression.currentV,
-      finalPct: progression.currentPct,
-      duration: Date.now() - activeCharge.startTs,
-      realMeasure: true,
-      realVAfterRest: tensionV,
-      voltageGap: ecartCalculé, // Contient l'écart de tension !
-      kmRidden: activeCharge.kmRidden,
-      temperature: activeCharge.temperature
+    if (!reposTermine) { showToast?.(tr("repos_pas_termine","Attendez que les 30 minutes soient écoulées.")); return; }
+    const val = parseFloat(tensionReelleSaisie);
+    let realVAfterRest, realPctAfterRest;
+    if (estExpert) {
+      realVAfterRest = !isNaN(val) ? val : progression.currentV;
+      realPctAfterRest = v2p(realVAfterRest, nominalVoltage);
+    } else {
+      realPctAfterRest = !isNaN(val) ? val : progression.currentPct;
+      realVAfterRest = p2v(realPctAfterRest, nominalVoltage);
+    }
+    const deltaV   = Number((realVAfterRest - activeCharge.targetV).toFixed(2));
+    const deltaPct = Number((realPctAfterRest - activeCharge.targetPct).toFixed(1));
+    const session = {
+      date:Date.now(), startTs:activeCharge.startTs, endTs:Date.now(),
+      vehicle:activeCharge.vehicle, nominal:activeCharge.nominal,
+      nominalVoltage:activeCharge.nominalVoltage||nominalVoltage,
+      mode:activeCharge.mode, startV:activeCharge.startV, startPct:activeCharge.startPct,
+      targetV:activeCharge.targetV, targetPct:activeCharge.targetPct,
+      finalV:progression.currentV, finalPct:progression.currentPct,
+      duration:Date.now()-activeCharge.startTs, durationMs:Date.now()-activeCharge.startTs,
+      realMeasure:true, typeSaisie:estExpert?"réelle_voltage":"réelle_pourcentage",
+      realVAfterRest, realPctAfterRest, voltageReal:realVAfterRest, pctReal:realPctAfterRest,
+      voltageGap:deltaV, deltaV, delta:deltaPct,
+      kmRidden:activeCharge.kmRidden, kilometres:activeCharge.kmRidden,
+      temperature:activeCharge.temperature,
     };
+    addToHistory(session);
 
-    addToHistory(nouvelleSession);
+    const ecartAbs = Math.abs(deltaPct);
+    const ecartV   = Math.abs(deltaV);
+    let confirmMsg, confirmVariant;
 
-    // Vérifier les badges après la charge
-    const nouvelHistorique = [nouvelleSession, ...history];
-    const nouveauxBadges = checkBadges(nouvelHistorique);
-
-    if (nouveauxBadges.length > 0) {
-      nouveauxBadges.forEach((badge, index) => {
-        setTimeout(() => {
-          showToast(badge);
-        }, index * 2000);
-      });
+    if (estExpert) {
+      if (ecartV <= 0.2) {
+  confirmMsg = "✅ Session enregistrée\n🎯 Écart parfait : " + (deltaV >= 0 ? "+" : "") + deltaV + "V";
+  confirmVariant = "success";
+} else if (ecartV <= 0.6) {
+  confirmMsg = "✅ Session enregistrée\n📐 Écart normal : " + (deltaV >= 0 ? "+" : "") + deltaV + "V";
+  confirmVariant = "default";
+} else {
+  confirmMsg = "✅ Session enregistrée\n📊 Estimation à affiner : " + (deltaV >= 0 ? "+" : "") + deltaV + "V";
+  confirmVariant = "warning";
+}
+    } else {
+      if (ecartAbs <= 2) {
+  confirmMsg = "✅ Session enregistrée\n🎯 Écart parfait : " + (deltaPct >= 0 ? "+" : "") + deltaPct + "%";
+  confirmVariant = "success";
+} else if (ecartAbs <= 5) {
+  confirmMsg = "✅ Session enregistrée\n📐 Écart normal : " + (deltaPct >= 0 ? "+" : "") + deltaPct + "%";
+  confirmVariant = "default";
+} else {
+  confirmMsg = "✅ Session enregistrée\n📊 Estimation à affiner : " + (deltaPct >= 0 ? "+" : "") + deltaPct + "%";
+  confirmVariant = "warning";
+}
     }
 
-    // On ferme enfin la session globale de charge active
+    clearRestTimer();
+    localStorage.removeItem("bl_rest_charge_snapshot");
+    localStorage.removeItem("bl_rest_end_ts");
+    localStorage.removeItem("bl_rest_notified_for_end_ts");
+    localStorage.removeItem("bl_active_v5");
+
+    showToast?.({ text: confirmMsg, variant: confirmVariant });
+
+    setValide(true);
+    setEnRepos(false);
+    setReposTermine(false);
+    setTensionReelleSaisie("");
     setActiveCharge(null);
   }
 
   function annuler() {
-    if (!confirm("Annuler la charge en cours ?")) return;
-    setActiveCharge(null);
+    if (!confirm(t("annuler_confirm"))) return;
+    clearRestTimer();
+    localStorage.removeItem("bl_rest_charge_snapshot");
+    localStorage.removeItem("bl_rest_end_ts");
+    localStorage.removeItem("bl_rest_notified_for_end_ts");
+    localStorage.removeItem("bl_active_v5");
+    setValide(true);
+    setEnRepos(false); setReposTermine(false); setTensionReelleSaisie(""); setActiveCharge(null);
   }
 
-  // Couleur du cercle selon progression
-  let couleurCercle = "#3b82f6";
-  if (progression.ratio >= 0.5) couleurCercle = "#10b981";
-  if (progression.isComplete) couleurCercle = "#22c55e";
+  const rayon=60, circonference=2*Math.PI*rayon;
+  const offset=circonference-progression.ratio*circonference;
+  const heureFin=activeCharge.endTs
+    ? new Date(activeCharge.endTs).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})
+    : "--:--";
 
-  const rayon = 60;
-  const circonference = 2 * Math.PI * rayon;
-  const offset = circonference - progression.ratio * circonference;
-
-  const finDate = new Date(activeCharge.endTs);
-  const heureFin = finDate.toLocaleTimeString("fr-FR", {
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-
-  // 🕒 ÉCRAN TEMPORAIRE : PÉRIODE DE REPOS ET DEMANDE DE TENSION RÉELLE
+  // === MODE REPOS ===
   if (enRepos) {
     return (
-      <div className="bg-[#152642] rounded-2xl p-6 shadow-md border border-[#1f3460] space-y-5 text-center">
-        <h2 className="text-xl font-bold text-white">⏳ Période de Repos (30 mm)</h2>
-        <p className="text-zinc-400 text-sm">
-          Pour calculer l'écart exact, attendez que la batterie se stabilise, puis mesurez sa tension réelle au voltmètre.
+      <div className="p-6 space-y-4 text-center" style={{ ...g.card, position:"relative", overflow:"hidden" }}>
+        <div style={{ position:"absolute",top:0,left:0,right:0,height:"1px",
+          background:"linear-gradient(90deg,transparent,rgba(56,189,248,0.7),rgba(139,92,246,0.5),transparent)" }} />
+
+        <div style={{ fontSize:"48px", marginBottom:"4px" }}>🧊</div>
+        <div className="text-xl font-bold text-white flex items-center justify-center gap-2">
+          {tr("restTitle","Stabilisation thermique...")}
+          <Tooltip text="Après débranchement, la tension remonte artificiellement. 30 min de repos permettent d'obtenir la vraie valeur stabilisée." position="bottom" />
+        </div>
+        <p className="text-sm" style={{ color:"rgba(148,197,240,0.55)", lineHeight:1.5 }}>
+          {tr("restText","La chimie interne se stabilise. Attends si possible la fin du minuteur avant de mesurer.")}
         </p>
 
-        <div className="bg-[#1f3460] p-4 rounded-xl space-y-3 max-w-xs mx-auto">
-          <label className="block text-zinc-300 text-sm font-medium">
-            Tension mesurée après repos (V) :
-          </label>
-          <input
-            type="number"
-            step="0.1"
-            placeholder={`${activeCharge.targetV} V`}
-            value={tensionReelleSaisie}
-            onChange={(e) => setTensionReelleSaisie(e.target.value)}
-            className="w-full bg-[#152642] border border-[#3b82f6] rounded-xl py-2 px-3 text-white font-bold text-center text-lg focus:outline-none"
-          />
+        <div style={{
+          fontFamily:"monospace", fontSize:"clamp(1.6rem, 8vw, 2.5rem)", fontWeight:900, letterSpacing:"2px",
+          background:"rgba(0,0,0,0.4)", border:"0.5px solid rgba(255,255,255,0.1)",
+          borderRadius:"12px", padding:"14px 16px", width:"100%", boxSizing:"border-box",
+          color:reposTermine?"#4ade80":"#38bdf8",
+          boxShadow:reposTermine?"0 0 20px rgba(74,222,128,0.2)":"0 0 20px rgba(56,189,248,0.15)",
+        }}>
+          {reposTermine ? "✅ Stabilisée !" : formatMMSS(restRemainingMs)}
         </div>
 
-        <button
-          onClick={validerTensionReelle}
-          className="w-full bg-green-600 hover:bg-green-500 text-white py-3 rounded-xl font-semibold transition-colors"
-        >
-          Enregistrer le trajet & l'écart
+        {!reposTermine && (
+          <>
+            <div style={{
+              textAlign:"left", fontSize:"0.85rem", lineHeight:1.5,
+              background:"rgba(56,189,248,0.08)", border:"0.5px solid rgba(56,189,248,0.25)",
+              borderLeft:"3px solid rgba(56,189,248,0.6)", borderRadius:"10px", padding:"12px 14px",
+              color:"rgba(200,235,255,0.8)",
+            }}>
+              {tr("restAlert","💡 Tu peux fermer l'app. À ton retour, elle se rouvrira sur la saisie finale.")}
+            </div>
+
+            <div className="text-center py-2 px-3 rounded-xl" style={{
+              background:"rgba(168,85,247,0.08)", border:"0.5px solid rgba(168,85,247,0.25)",
+              color:"#c084fc", fontSize:"0.85rem",
+            }}>
+              ⏰ {tr("fin_estimee_alarme", "Fin estimée à")} {new Date(Date.now() + restRemainingMs).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}
+              {" — "}{tr("pensez_alarme", "pensez à mettre une alarme")}
+            </div>
+          </>
+        )}
+
+        {reposTermine && (
+          <div className="p-4 space-y-3 rounded-xl" style={{
+            background:"rgba(0,0,0,0.2)", border:"0.5px solid rgba(255,255,255,0.08)",
+          }}>
+            <div className="flex items-center justify-center gap-1.5" style={{ color:"rgba(148,197,240,0.7)" }}>
+              <span className="text-sm font-medium">
+                {estExpert ? t("tension_apres_repos") : tr("pourcentage_reel_apres_repos","Pourcentage réel après repos (%)")}
+              </span>
+              <Tooltip text={estExpert
+                ? "Mesurez la tension avec un voltmètre sur la prise de charge. C'est la valeur la plus précise."
+                : "Lisez le pourcentage affiché sur l'écran de votre vélo ou trottinette après 30 min de repos."
+              } position="top" />
+            </div>
+            <input type="number" step={estExpert?"0.1":"1"}
+              placeholder={estExpert?`${activeCharge.targetV} V`:`${activeCharge.targetPct} %`}
+              value={tensionReelleSaisie} onChange={(e)=>setTensionReelleSaisie(e.target.value)}
+              className="w-full text-white font-bold text-center text-lg py-2 px-3 rounded-xl outline-none"
+              style={{ background:"rgba(255,255,255,0.06)", border:"0.5px solid rgba(56,189,248,0.4)" }}
+            />
+          </div>
+        )}
+
+        <button onClick={validerTensionReelle}
+          className="w-full py-3 rounded-xl font-semibold transition-all"
+          style={{ background:"linear-gradient(135deg,rgba(56,189,248,0.25),rgba(99,102,241,0.2))",
+            border:"0.5px solid rgba(56,189,248,0.4)", color:"#38bdf8", boxShadow:"0 0 16px rgba(56,189,248,0.1)" }}>
+          📏 {tr("btnMeasureNow","Mesurer immédiatement")}
         </button>
+
+        
       </div>
     );
   }
 
-  // ⚡ ÉCRAN PRINCIPAL : CHARGE ACTIVE
+  // === MODE CHARGE EN COURS ===
   return (
-    <div className="bg-[#152642] rounded-2xl p-6 shadow-md border border-[#1f3460] space-y-5">
+    <div className="p-6 space-y-5" style={{ ...g.card, position:"relative", overflow:"hidden" }}>
+      <div style={{ position:"absolute",top:0,left:0,right:0,height:"1px",
+        background:"linear-gradient(90deg,transparent,rgba(129,140,248,0.7),rgba(56,189,248,0.9),transparent)" }} />
+
       <div className="text-center">
-        <h2 className="text-xl font-bold text-white">⚡ Charge en cours</h2>
-        <p className="text-zinc-400 text-sm mt-1">
-          {profile.nominalVoltage}V • {profile.capacityAh}Ah
-        </p>
+        <h2 className="text-xl font-bold text-white">⚡ {t("charge_en_cours")}</h2>
+        <p className="text-sm mt-1" style={{ color:"rgba(148,197,240,0.5)" }}>{nominalVoltage}V • {capacityAh}Ah</p>
       </div>
 
-      {/* Cercle de progression */}
       <div className="flex flex-col items-center">
-        <svg width="160" height="160" className="rotate-[-90deg]">
-          <circle cx="80" cy="80" r={rayon} fill="none" stroke="#1f3460" strokeWidth="14" />
-          <circle
-            cx="80" cy="80" r={rayon} fill="none"
-            stroke={couleurCercle} strokeWidth="14"
-            strokeDasharray={circonference}
-            strokeDashoffset={offset}
+        <svg width="160" height="160" style={{ transform:"rotate(-90deg)" }}>
+          <defs>
+            <linearGradient id="progressGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#818cf8"/>
+              <stop offset="100%" stopColor="#38bdf8"/>
+            </linearGradient>
+          </defs>
+          <circle cx="80" cy="80" r={rayon} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="12"/>
+          <circle cx="80" cy="80" r={rayon} fill="none"
+            stroke={progression.isComplete?"#4ade80":"url(#progressGrad)"}
+            strokeWidth="12" strokeDasharray={circonference} strokeDashoffset={offset}
             strokeLinecap="round"
-            style={{ transition: "stroke-dashoffset 1s linear" }}
+            style={{ transition:"stroke-dashoffset 1s linear",
+              filter:`drop-shadow(0 0 10px ${progression.isComplete?"rgba(74,222,128,0.6)":"rgba(56,189,248,0.5)"})` }}
           />
         </svg>
-        <div className="relative" style={{ marginTop: "-110px" }}>
-          <p className="text-5xl font-bold text-white text-center">
-            {Math.round(progression.ratio * 100)}%
+        <div style={{ marginTop:"-110px", textAlign:"center" }}>
+          <p className="text-4xl font-black" style={{
+            color: progression.isComplete ? "#4ade80" : "#38bdf8",
+          }}>
+            {Math.round(progression.ratio*100)}%
           </p>
-          <p className="text-sm text-zinc-400 text-center mt-1">progression</p>
+          <p className="text-sm mt-1" style={{ color:"rgba(148,197,240,0.5)" }}>{t("progression")}</p>
         </div>
       </div>
 
-      {/* Tableau d'infos */}
-      <div className="space-y-2 pt-4">
-        <div className="bg-[#1f3460] rounded-xl px-4 py-3 flex justify-between items-center">
-          <span className="text-zinc-300">🔋 Départ</span>
-          <span className="text-white font-bold">
-            {estExpert ? `${activeCharge.startV}V` : `${activeCharge.startPct}%`}
-          </span>
-        </div>
-
-        <div className="bg-[#1f3460] rounded-xl px-4 py-3 flex justify-between items-center">
-          <span className="text-zinc-300">🎯 Cible</span>
-          <span className="text-white font-bold">
-            {estExpert ? `${activeCharge.targetV}V` : `${activeCharge.targetPct}%`}
-          </span>
-        </div>
-
-        <div className="bg-[#1f3460] rounded-xl px-4 py-3 flex justify-between items-center">
-          <span className="text-zinc-300">📊 En cours</span>
-          <span className="text-white font-bold">
-            {estExpert ? `${progression.currentV}V` : `${progression.currentPct}%`}
-          </span>
-        </div>
-
-        <div className="bg-[#1f3460] rounded-xl px-4 py-3 flex justify-between items-center">
-          <span className="text-zinc-300">⏱️ Temps écoulé</span>
-          <span className="text-white font-bold">{fmt(progression.elapsed)}</span>
-        </div>
-
-        <div className="bg-[#1f3460] rounded-xl px-4 py-3 flex justify-between items-center">
-          <span className="text-zinc-300">⏳ Temps restant</span>
-          <span className="text-white font-bold">
-            {progression.isComplete ? "✅ Terminé" : fmt(progression.remaining)}
-          </span>
-        </div>
-
-        <div className="bg-[#1f3460] rounded-xl px-4 py-3 flex justify-between items-center">
-          <span className="text-zinc-300">🕐 Fin estimée</span>
-          <span className="text-white font-bold">{heureFin}</span>
-        </div>
+      <div className="space-y-2 pt-2">
+        {[
+          { label:`🔋 ${t("depart")}`, val:estExpert?`${activeCharge.startV}V`:`${activeCharge.startPct}%`, tip:"Niveau de batterie au moment du démarrage du suivi." },
+          { label:`🎯 ${t("cible")}`, val:estExpert?`${activeCharge.targetV}V`:`${activeCharge.targetPct}%`, tip:"Valeur d'arrêt recommandée. Configurée dans Réglages > Étalonnage." },
+          { label:`📊 ${t("en_cours")}`, val:estExpert?`${progression.currentV}V`:`${progression.currentPct}%`, tip:"Valeur estimée en temps réel par interpolation linéaire." },
+          { label:`⏱️ ${t("temps_ecoule")}`, val:fmt(progression.elapsed), tip:null },
+          { label:`⏳ ${t("temps_restant")}`, val:progression.isComplete?t("termine"):fmt(progression.remaining), tip:"Temps estimé calculé en fonction de votre capacité, courant de charge et température." },
+          { label:`🕐 ${t("fin_estimee")}`, val:heureFin, tip:null },
+        ].map((row,i)=>(
+          <div key={i} className="flex justify-between items-center px-4 py-3" style={g.inner}>
+            <span className="flex items-center gap-1.5" style={g.label}>
+              {row.label}
+              {row.tip && <Tooltip text={row.tip} position="top" />}
+            </span>
+            <span style={g.value}>{row.val}</span>
+          </div>
+        ))}
       </div>
 
-      {/* Alerte fin visuelle */}
       {progression.isComplete && (
-        <div className="bg-green-900/50 border border-green-700 text-green-200 p-3 rounded-xl text-center animate-bounce">
-          🎉 Charge terminée ! Vous pouvez débrancher.
+        <div className="p-3 rounded-xl text-center animate-bounce" style={{
+          background:"linear-gradient(135deg,rgba(74,222,128,0.15),rgba(56,189,248,0.1))",
+          border:"0.5px solid rgba(74,222,128,0.3)", color:"#4ade80",
+        }}>
+          {t("charge_terminee")}
         </div>
       )}
 
-      {/* Boutons de contrôle */}
+      {!progression.isComplete && progression.remaining > 0 && (
+        <div className="text-center py-2 px-3 rounded-xl" style={{
+          background:"rgba(168,85,247,0.08)", border:"0.5px solid rgba(168,85,247,0.25)",
+          color:"#c084fc", fontSize:"0.85rem",
+        }}>
+          ⏰ {tr("fin_estimee_alarme", "Fin estimée à")} {heureFin}
+          {" — "}{tr("pensez_alarme", "pensez à mettre une alarme")}
+        </div>
+      )}
+
       <div className="flex gap-2">
-        <button
-          onClick={annuler}
-          className="flex-1 bg-red-600 hover:bg-red-500 text-white py-3 rounded-xl font-medium transition-colors"
-        >
-          ❌ Annuler
+        <button onClick={annuler} className="flex-1 py-3 rounded-xl font-medium transition-all"
+          style={{ background:"linear-gradient(135deg,rgba(239,68,68,0.15),rgba(239,68,68,0.08))",
+            border:"0.5px solid rgba(239,68,68,0.3)", color:"#f87171" }}>
+          ❌ {t("annuler")}
         </button>
-        <button
-          onClick={debrancher}
-          className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-semibold transition-colors"
-        >
-          🔌 Débrancher
-        </button>
+        <div className="flex-1 flex flex-col gap-1">
+          <button onClick={debrancher} className="w-full py-3 rounded-xl font-semibold transition-all"
+            style={{ background:"linear-gradient(135deg,rgba(56,189,248,0.25),rgba(99,102,241,0.2))",
+              border:"0.5px solid rgba(56,189,248,0.4)", color:"#38bdf8", boxShadow:"0 0 20px rgba(56,189,248,0.12)" }}>
+            🔌 {t("debrancher")}
+          </button>
+          <div className="flex items-center justify-center gap-1" style={{ fontSize:"11px", color:"rgba(148,197,240,0.4)" }}>
+            <Tooltip text="Démarrez le timer de repos de 30 min. Après ce délai, mesurez la tension réelle pour calibrer précisément." position="top" />
+            <span>Info</span>
+          </div>
+        </div>
       </div>
     </div>
   );
