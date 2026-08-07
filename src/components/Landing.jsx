@@ -462,7 +462,7 @@ export default function Landing({ onEnter }) {
           <div className="bl-trust">
             <span>🔒 Aucune donnée collectée</span>
             <span>📱 Fonctionne hors-ligne</span>
-            <span>🌍 FR · EN · ES · DE</span>
+            <span>🌍 FR · EN · ES · DE · NL</span>
           </div>
         </div>
 
