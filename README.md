@@ -1,5 +1,7 @@
 <div align="center">
 
+![BatLife Landing](public/screenshots/landing-hero.png)
+
 # 🔋 BatLife
 
 ### L'app qui vous aide à prolonger la vie de votre batterie e-bike & trottinette
