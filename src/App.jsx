@@ -72,8 +72,9 @@ function App() {
     setDeferredPrompt(e);
   };
 
-  // Si l'événement est déjà passé, on le récupère
+  // Récupère l'événement s'il est déjà capturé dans index.html
   if (window.deferredPromptEvent) {
+    console.log("✅ deferredPromptEvent récupéré depuis window !");
     setDeferredPrompt(window.deferredPromptEvent);
   }
 
