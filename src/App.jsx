@@ -58,6 +58,7 @@ function App() {
     mode: "debutant",
     langue: "fr",
   });
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
 
   const { t } = useTranslation(reglages.langue);
   const setLangueGlobal = (nouvelleLangue) =>
@@ -67,6 +68,14 @@ function App() {
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", "dark");
   }, []);
+  useEffect(() => {
+  const handler = (e) => {
+    e.preventDefault();
+    setDeferredPrompt(e);
+  };
+  window.addEventListener("beforeinstallprompt", handler);
+  return () => window.removeEventListener("beforeinstallprompt", handler);
+}, []);
 
   // SEO meta tags
   useEffect(() => {
@@ -126,6 +135,28 @@ function App() {
       style={{ background: "var(--bg-app)" }}>
       <Toast message={toast} onClose={hideToast} />
       <IOSInstallBanner t={t} />
+
+{deferredPrompt && (
+  <div className="flex justify-center px-4 py-2"
+    style={{ background: "var(--bg-app)" }}>
+    <button
+      onClick={async () => {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === "accepted") {
+          setDeferredPrompt(null);
+        }
+      }}
+      className="w-full max-w-sm py-2 px-4 rounded-xl font-semibold text-sm"
+      style={{
+        background: "var(--accent)",
+        color: "#000"
+      }}
+    >
+      📲 Installer BatLife sur mon téléphone
+    </button>
+  </div>
+)}
 
       <div className="max-w-2xl mx-auto w-full flex flex-col h-full">
         <Header langue={reglages.langue} setLangue={setLangueGlobal} />
