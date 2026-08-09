@@ -71,6 +71,7 @@ function App() {
   useEffect(() => {
   const handler = (e) => {
     e.preventDefault();
+    console.log("✅ beforeinstallprompt reçu !");
     setDeferredPrompt(e);
   };
   window.addEventListener("beforeinstallprompt", handler);
