@@ -65,21 +65,37 @@ function App() {
     setReglages({ ...reglages, langue: nouvelleLangue });
 
   // Toujours dark mode
- useEffect(() => {
-  const handler = (e) => {
-    e.preventDefault();
-    console.log("✅ beforeinstallprompt reçu !");
-    setDeferredPrompt(e);
-  };
-
-  // Récupère l'événement s'il est déjà capturé dans index.html
+useEffect(() => {
+  // Vérifie immédiatement
   if (window.deferredPromptEvent) {
-    console.log("✅ deferredPromptEvent récupéré depuis window !");
+    console.log("✅ récupéré immédiatement !");
     setDeferredPrompt(window.deferredPromptEvent);
+    return;
   }
 
+  // Sinon on attend et on vérifie toutes les 500ms
+  const interval = setInterval(() => {
+    if (window.deferredPromptEvent) {
+      console.log("✅ récupéré après attente !");
+      setDeferredPrompt(window.deferredPromptEvent);
+      clearInterval(interval);
+    }
+  }, 500);
+
+  // On écoute aussi l'événement direct
+  const handler = (e) => {
+    e.preventDefault();
+    console.log("✅ beforeinstallprompt reçu directement !");
+    setDeferredPrompt(e);
+    clearInterval(interval);
+  };
+
   window.addEventListener("beforeinstallprompt", handler);
-  return () => window.removeEventListener("beforeinstallprompt", handler);
+
+  return () => {
+    window.removeEventListener("beforeinstallprompt", handler);
+    clearInterval(interval);
+  };
 }, []);
 
   // SEO meta tags
