@@ -164,6 +164,13 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="dns-prefetch" href="https://buymeacoffee.com" />
 
+    <script>
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    window.deferredPromptEvent = e;
+  });
+</script>
+
   </head>
 
   <body>

@@ -65,15 +65,18 @@ function App() {
     setReglages({ ...reglages, langue: nouvelleLangue });
 
   // Toujours dark mode
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", "dark");
-  }, []);
-  useEffect(() => {
+ useEffect(() => {
   const handler = (e) => {
     e.preventDefault();
     console.log("✅ beforeinstallprompt reçu !");
     setDeferredPrompt(e);
   };
+
+  // Si l'événement est déjà passé, on le récupère
+  if (window.deferredPromptEvent) {
+    setDeferredPrompt(window.deferredPromptEvent);
+  }
+
   window.addEventListener("beforeinstallprompt", handler);
   return () => window.removeEventListener("beforeinstallprompt", handler);
 }, []);
