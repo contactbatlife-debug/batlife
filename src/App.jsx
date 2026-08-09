@@ -158,23 +158,16 @@ useEffect(() => {
       <IOSInstallBanner t={t} />
 
 {deferredPrompt && (
-  <div className="flex justify-center px-4 py-2"
-    style={{ background: "var(--bg-app)" }}>
+  <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 9999, padding: "10px" }}>
     <button
       onClick={async () => {
         deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
-        if (outcome === "accepted") {
-          setDeferredPrompt(null);
-        }
+        if (outcome === "accepted") setDeferredPrompt(null);
       }}
-      className="w-full max-w-sm py-2 px-4 rounded-xl font-semibold text-sm"
-      style={{
-        background: "var(--accent)",
-        color: "#000"
-      }}
+      style={{ width: "100%", padding: "20px", background: "#22c55e", color: "#000", fontWeight: "bold", fontSize: "16px" }}
     >
-      📲 Installer BatLife sur mon téléphone
+      📲 INSTALLER BATLIFE
     </button>
   </div>
 )}
