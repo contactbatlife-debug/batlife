@@ -112,6 +112,30 @@ useEffect(() => {
     set('meta[property="twitter:description"]', "content", t("seo_desc"));
   }, [reglages.langue, t]);
 
+    // ✅ Gestion du bouton "Retour" natif d'Android et des navigateurs
+  useEffect(() => {
+    // On ajoute la page actuelle à l'historique du navigateur
+    window.history.pushState({ page: page }, "", `#${page}`);
+  }, [page]);
+
+  useEffect(() => {
+    // Quand l'utilisateur clique sur "Retour", on intercepte l'action
+    const handlePopState = (event) => {
+      if (event.state && event.state.page) {
+        setPage(event.state.page);
+      } else {
+        setPage("accueil"); // Par défaut, on revient à l'accueil
+      }
+    };
+    
+    window.addEventListener("popstate", handlePopState);
+    
+    // Nettoyage quand on quitte l'application
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
   // Navigation par swipe
   const goNext = useCallback(() => {
     setPage(current => {
@@ -166,7 +190,7 @@ useEffect(() => {
         if (outcome === "accepted") setDeferredPrompt(null);
       }}
       className="w-full py-3 rounded-xl font-bold"
-      style={{ background: "var(--accent)", color: "#000" }}
+      style={{ background: "var(--accent)", color: "#fbbf24" }}
     >
       📲 Installer BatLife sur l'écran d'accueil
     </button>

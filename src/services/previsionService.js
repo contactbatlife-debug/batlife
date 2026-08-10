@@ -16,6 +16,13 @@
 
 const SOH_REMPLACEMENT = 70;
 
+// ✅ Calcule un indice de confiance basé sur le nombre de sessions
+function calculerConfiance(nbSessions) {
+  if (nbSessions >= 21) return "forte";
+  if (nbSessions >= 13) return "moyenne";
+  return "faible";
+}
+
 export function calculerPrevision(history) {
   if (!history || history.length < 8) {
     return { disponible: false, raison: "pas_assez_data" };
@@ -30,6 +37,8 @@ export function calculerPrevision(history) {
   }
 
   const MS_PER_DAY = 24 * 60 * 60 * 1000;
+    // ✅ Indice de confiance basé sur le volume de données
+  const confiance = calculerConfiance(sessionsReelles.length);
 
   // ✅ Fenêtre large (10 sessions) pour lisser fortement le bruit de mesure
   const fenetre = Math.min(10, Math.floor(sessionsReelles.length / 2));
@@ -78,8 +87,8 @@ export function calculerPrevision(history) {
 
   const denom = n * sumX2 - sumX * sumX;
   if (Math.abs(denom) < 0.001) {
-    return {
-      disponible: true, sohActuel, tendance: "stable",
+        return {
+      disponible: true, sohActuel, tendance: "stable", confiance,
       degradationParMois: 0, cyclesRestants: null,
       dateRemplacement: null, moisRestants: null, pointsSoH,
     };
@@ -95,8 +104,8 @@ export function calculerPrevision(history) {
 
   // Seuil de détection plus tolérant pour éviter les faux positifs
   if (penteLissee >= -0.008) {
-    return {
-      disponible: true, sohActuel, tendance: "stable",
+       return {
+      disponible: true, sohActuel, tendance: "stable", confiance,
       degradationParMois: 0, cyclesRestants: null,
       dateRemplacement: null, moisRestants: null, pointsSoH,
     };
@@ -107,8 +116,8 @@ export function calculerPrevision(history) {
   const joursRestants = (SOH_REMPLACEMENT - sohActuelCalcule) / penteLissee;
 
   if (joursRestants <= 0) {
-    return {
-      disponible: true, sohActuel, tendance: "critique",
+        return {
+      disponible: true, sohActuel, tendance: "critique", confiance,
       degradationParMois: Math.abs(Math.round(penteLissee * 30 * 10) / 10),
       cyclesRestants: 0, dateRemplacement: new Date(), moisRestants: 0, pointsSoH,
     };
@@ -129,8 +138,8 @@ export function calculerPrevision(history) {
   if (moisRestants < 6)   tendance = "critique";
   else if (moisRestants < 18) tendance = "attention";
 
-  return {
-    disponible: true, sohActuel, tendance, degradationParMois,
+    return {
+    disponible: true, sohActuel, tendance, confiance, degradationParMois,
     cyclesRestants: Math.max(0, cyclesRestants),
     dateRemplacement, moisRestants: Math.max(0, moisRestants), pointsSoH,
   };

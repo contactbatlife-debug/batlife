@@ -256,7 +256,7 @@ function PrevisionCard({ prevision, t }) {
     );
   }
 
-  const { tendance, sohActuel, degradationParMois, cyclesRestants, dateRemplacement, moisRestants } = prevision;
+  const { tendance, sohActuel, degradationParMois, cyclesRestants, dateRemplacement, moisRestants, confiance } = prevision;
 
   const config = {
     stable:    { rgb:"74,222,128",  accent:"#4ade80", emoji:"✅", label: t("prevision_stable")    || "Batterie en bonne santé" },
@@ -284,7 +284,7 @@ function PrevisionCard({ prevision, t }) {
         background:`linear-gradient(90deg, transparent, rgba(${config.rgb},0.7), transparent)`,
       }} />
 
-      {/* Titre */}
+            {/* Titre */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold flex items-center gap-2" style={g.label}>
           🔮 {t("prevision_titre") || "Prévision de remplacement"}
@@ -297,6 +297,32 @@ function PrevisionCard({ prevision, t }) {
           {config.emoji} {config.label}
         </span>
       </div>
+
+      {/* ✅ NOUVEAU : Badge de confiance de l'estimation */}
+      {confiance && (
+        <div className="flex items-center gap-2 mt-2 mb-1">
+          <span className="text-xs" style={g.subLabel}>
+            {t("prevision_confiance_label") || "Fiabilité de l'estimation :"}
+          </span>
+          <span className="text-xs font-bold px-2 py-0.5 rounded-md" style={{
+            background: confiance === "forte" ? "rgba(74,222,128,0.15)" 
+                      : confiance === "moyenne" ? "rgba(250,204,21,0.15)" 
+                      : "rgba(251,146,60,0.15)",
+            color: confiance === "forte" ? "#4ade80" 
+                 : confiance === "moyenne" ? "#facc15" 
+                 : "#fb923c",
+            border: `0.5px solid ${
+              confiance === "forte" ? "rgba(74,222,128,0.3)" 
+              : confiance === "moyenne" ? "rgba(250,204,21,0.3)" 
+              : "rgba(251,146,60,0.3)"
+            }`
+          }}>
+            {confiance === "forte" && (t("prevision_confiance_forte") || "🟢 Forte")}
+            {confiance === "moyenne" && (t("prevision_confiance_moyenne") || "🟠 Moyenne")}
+            {confiance === "faible" && (t("prevision_confiance_faible") || "🟡 À consolider")}
+          </span>
+        </div>
+      )}
 
       {/* Barre de vie SoH */}
       <div>

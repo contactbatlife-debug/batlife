@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { vdb } from "../services/calculs";
+import translations from "../i18n/translations";
 
 // ✅ Demande la persistance du stockage (protège contre l'éviction iOS/Chrome)
 async function ensurePersistence() {
@@ -134,17 +135,47 @@ export function AppProvider({ children }) {
     localStorage.setItem("bl_active_battery_id_v6", activeBatteryId.toString());
   }, [activeBatteryId]);
 
+    // 1) Met à jour la batterie active dans la liste des batteries
   useEffect(() => {
-    setBatteries(prev => {
-      const updatedBatteries = prev.map(b =>
+    setBatteries(prev =>
+      prev.map(b =>
         b.id === activeBatteryId
           ? { ...b, profile, calibration, history }
           : b
-      );
-      localStorage.setItem("bl_batteries_v6", JSON.stringify(updatedBatteries));
-      return updatedBatteries;
-    });
+      )
+    );
   }, [profile, calibration, history, activeBatteryId]);
+
+    // 2) Sauvegarde les batteries avec un filet de sécurité
+  useEffect(() => {
+    try {
+      localStorage.setItem("bl_batteries_v6", JSON.stringify(batteries));
+    } catch (erreur) {
+      console.error("Erreur de stockage BatLife :", erreur);
+
+      // On essaie de récupérer la langue choisie par l'utilisateur
+      let langue = profile?.lang || "fr";
+
+      try {
+        const rawReglages = localStorage.getItem("batlife_reglages");
+        if (rawReglages) {
+          const parsed = JSON.parse(rawReglages);
+          if (parsed?.langue) {
+            langue = parsed.langue;
+          }
+        }
+      } catch (e) {
+        // Si on ne trouve pas la langue, on reste en français
+      }
+
+            // Message traduit via le dictionnaire central (translations.js)
+      setToast({
+        text: translations[langue]?.stockage_plein || translations.fr.stockage_plein,
+        variant: "warning"
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batteries]);
 
   // Charge active — sauvegarde uniquement si non null
   useEffect(() => {
@@ -243,16 +274,30 @@ export function AppProvider({ children }) {
     URL.revokeObjectURL(a.href);
   }
 
-  function importBackup(file, onSuccess, onError) {
+   function importBackup(file, onSuccess, onError) {
     const r = new FileReader();
     r.onload = () => {
       try {
         const p = JSON.parse(r.result);
+        
+        // 🛂 LE DOUANIER : Vérifie que c'est bien un fichier BatLife valide
+        if (!p || !p.data || !p.data.bl_batteries_v6) {
+          console.error("Fichier invalide : ce n'est pas une sauvegarde BatLife reconnue.");
+          showToast({
+            text: "❌ Fichier invalide. Ce n'est pas une sauvegarde BatLife reconnue.",
+            variant: "error"
+          });
+          if (onError) onError();
+          return; // On bloque tout, on ne touche pas aux données actuelles
+        }
+
+        // Si le douanier valide, on importe normalement
         if (p.data) {
           Object.keys(p.data).forEach(key => {
             localStorage.setItem(key, JSON.stringify(p.data[key]));
           });
         }
+        
         const savedBats = localStorage.getItem("bl_batteries_v6");
         const savedActiveId = localStorage.getItem("bl_active_battery_id_v6");
         const savedTemp = localStorage.getItem("bl_temperature_v6");
@@ -269,10 +314,20 @@ export function AppProvider({ children }) {
           setCalibration(currentBat.calibration || defaultCalibration(48));
           setHistory(currentBat.history || []);
         }
-        onSuccess();
+        
+        showToast({
+          text: "✅ Sauvegarde restaurée avec succès !",
+          variant: "success"
+        });
+        
+        if (onSuccess) onSuccess();
       } catch (e) {
-        console.error(e);
-        onError();
+        console.error("Erreur lors de la lecture du fichier :", e);
+        showToast({
+          text: "❌ Erreur de lecture. Le fichier est peut-être corrompu.",
+          variant: "error"
+        });
+        if (onError) onError();
       }
     };
     r.readAsText(file);
