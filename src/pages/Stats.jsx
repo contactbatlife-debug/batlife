@@ -32,7 +32,7 @@ const mesureStyles = {
   estimation: { bg:"rgba(129,140,248,0.12)", border:"rgba(129,140,248,0.3)", color:"#818cf8",  gradFrom:"rgba(129,140,248,0.7)" },
 };
 
-const resumeCards = (stats, sohColor) => [
+const resumeCards = (stats, sohColor, sohVal) => [
   { val:stats.totalCycles,      unit:"",    label:"🔋", labelKey:"stats_cycles",           color:"#60a5fa", rgb:"96,165,250"   },
   { val:stats.kmTotaux>0?stats.kmTotaux:"—", unit:stats.kmTotaux>0?" km":"", label:"🛣️", labelKey:"stats_km_totaux", color:"#4ade80", rgb:"74,222,128" },
   { val:stats.autonomieMoyenne>0?stats.autonomieMoyenne:"—", unit:stats.autonomieMoyenne>0?" km":"", label:"📏", labelKey:"stats_autonomie_moyenne", color:"#facc15", rgb:"250,204,21" },
@@ -264,6 +264,13 @@ function PrevisionCard({ prevision, t }) {
     attention: { rgb:"250,204,21",  accent:"#facc15", emoji:"⚠️", label: t("prevision_attention") || "À surveiller" },
     critique:  { rgb:"248,113,113", accent:"#f87171", emoji:"🔴", label: t("prevision_critique")  || "Remplacement proche" },
   }[tendance] || { rgb:"74,222,128", accent:"#4ade80", emoji:"✅", label:"—" };
+  // ✅ Si la batterie est déjà au seuil, le verdict doit le refléter
+  if (tendance === "stable" && sohActuel <= 75) {
+    config.rgb = "248,113,113";
+    config.accent = "#f87171";
+    config.emoji = "🔴";
+    config.label = t("prevision_seuil_label");
+  }
 
   const dateFormatee = dateRemplacement
     ? dateRemplacement.toLocaleDateString(undefined, { month:"long", year:"numeric" })
@@ -422,14 +429,30 @@ function PrevisionCard({ prevision, t }) {
         borderRadius:"10px", padding:"10px 12px",
       }}>
         <p className="text-xs leading-relaxed" style={{ color:`rgba(${config.rgb},0.9)` }}>
-          {tendance === "stable"    && (t("prevision_conseil_stable")    || "Votre batterie est en excellente forme. Continuez à charger entre 20% et 80% pour maintenir cet état.")}
+          {tendance === "stable" && sohActuel > 75  && (t("prevision_conseil_stable")    || "Votre batterie est en excellente forme. Continuez à charger entre 20% et 80% pour maintenir cet état.")}
+          {tendance === "stable" && sohActuel <= 75 && (t("prevision_conseil_seuil")     || "Votre batterie a atteint le seuil des 70%. Même si elle se dégrade lentement, il est temps de planifier son remplacement à moyen terme.")}
           {tendance === "bonne"     && (t("prevision_conseil_bonne")     || "Votre batterie est en excellente forme. Continuez à charger entre 20% et 80% pour maintenir cet état.")}
           {tendance === "attention" && (t("prevision_conseil_attention") || "Dégradation détectée. Évitez les charges à 100% quotidiennes et les températures extrêmes.")}
           {tendance === "critique"  && (t("prevision_conseil_critique")  || "Remplacement recommandé prochainement. Prévoyez un budget pour une nouvelle batterie.")}
         </p>
       </div>
 
-      <p className="text-xs text-center" style={{ color:"rgba(148,197,240,0.25)" }}>
+            {/* ✅ Encadré transparence sur le SoH */}
+      <div style={{
+        background: "rgba(56,189,248,0.06)",
+        border: "0.5px solid rgba(56,189,248,0.2)",
+        borderLeft: "3px solid rgba(56,189,248,0.5)",
+        borderRadius: "10px", padding: "10px 12px",
+      }}>
+        <p className="text-xs font-semibold mb-1" style={{ color: "#38bdf8" }}>
+          💡 {t("soh_honnetete_titre")}
+        </p>
+        <p className="text-xs leading-relaxed" style={{ color: "rgba(148,197,240,0.7)" }}>
+          {t("soh_honnetete_texte")}
+        </p>
+      </div>
+
+      <p className="text-xs text-center mt-3" style={{ color:"rgba(148,197,240,0.25)" }}>
         {t("prevision_disclaimer") || "Estimation basée sur vos mesures réelles — à titre indicatif."}
       </p>
     </div>
@@ -476,7 +499,7 @@ function Stats({ t }) {
   }
 
   const stats     = useMemo(() => calculerStats(history), [history]);
-  const prevision = useMemo(() => calculerPrevision(history), [history]);
+  const prevision = useMemo(() => calculerPrevision(history, profile?.sohInitial), [history, profile?.sohInitial]);
 
   const finalGraphData = useMemo(() => {
     const data = historySorted.slice(0,7).reverse().map(item => {
@@ -504,7 +527,9 @@ function Stats({ t }) {
     return { icon:"🔮", label:t("mesure_estimation_appli")||"Estimation", style:mesureStyles.estimation };
   };
 
-  const sohColor = stats.sohMoyen>=85?"#4ade80":stats.sohMoyen>=65?"#facc15":"#f87171";
+  // ✅ Une seule voix : la carte du haut affiche le même SoH que le graphique
+  const sohAffiche = prevision?.disponible ? prevision.sohActuel : stats.sohMoyen;
+  const sohColor = sohAffiche>=85?"#4ade80":sohAffiche>=65?"#facc15":"#f87171";
 
   return (
     <div className="space-y-4 pb-28 px-1">
@@ -554,7 +579,7 @@ function Stats({ t }) {
 
       {/* Cartes résumé */}
       <div className="grid grid-cols-2 gap-3">
-        {resumeCards(stats, sohColor).map((item,i) => (
+        {resumeCards(stats, sohColor, sohAffiche).map((item,i) => (
           <div key={i} className="flex flex-col items-center justify-center text-center p-4 min-h-[110px]"
             style={{
               background:`rgba(${item.rgb},0.08)`,

@@ -23,10 +23,9 @@ function calculerConfiance(nbSessions) {
   return "faible";
 }
 
-export function calculerPrevision(history) {
-  if (!history || history.length < 8) {
-    return { disponible: false, raison: "pas_assez_data" };
-  }
+export function calculerPrevision(history, sohInitial = 100) {
+  // ✅ Le point de départ de la courbe est donné par l'utilisateur
+  const sohMax = Math.max(70, Math.min(100, Number(sohInitial) || 100));
 
   const sessionsReelles = history
     .filter(h => h.realMeasure === true && h.delta !== null && h.delta !== undefined)
@@ -53,7 +52,7 @@ export function calculerPrevision(history) {
     const avgDelta = groupe.reduce((acc, s) => acc + Math.abs(s.delta), 0) / fenetre;
     const derive = Math.max(0, avgDelta - deltaRef);
     // Facteur très conservateur : 0.5 au lieu de 1.5/2
-    const soh = Math.max(85, Math.min(100, 100 - derive * 0.5));
+    const soh = Math.max(70, Math.min(sohMax, sohMax - derive * 0.5));
     const ts = groupe[Math.floor(fenetre / 2)].startTs || groupe[Math.floor(fenetre / 2)].date;
     pointsSohBrut.push({ ts, soh });
   }
@@ -103,7 +102,7 @@ export function calculerPrevision(history) {
   const penteLissee = Math.max(penteMax, pente);
 
   // Seuil de détection plus tolérant pour éviter les faux positifs
-  if (penteLissee >= -0.008) {
+   if (penteLissee >= -0.008 || sohMax <= 75) {
        return {
       disponible: true, sohActuel, tendance: "stable", confiance,
       degradationParMois: 0, cyclesRestants: null,

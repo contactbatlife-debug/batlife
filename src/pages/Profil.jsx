@@ -36,6 +36,7 @@ function Profil({ t, onRetour }) {
   const [customVoltage, setCustomVoltage] = useState(profile.nominalVoltage||48);
   const [customCapacity, setCustomCapacity] = useState(profile.capacityAh||15);
   const [customCurrent, setCustomCurrent] = useState(profile.Idefault||2);
+  const [sohInitial, setSohInitial] = useState(profile.sohInitial||100);
 
   const marques = useMemo(() => Array.from(new Set(VEHICLE_DATABASE.map(v=>v.brand))).sort(), []);
   const modeles = useMemo(() => VEHICLE_DATABASE.filter(v=>v.brand===marqueSelectionnee), [marqueSelectionnee]);
@@ -44,12 +45,12 @@ function Profil({ t, onRetour }) {
   function enregistrer() {
     if (modeAjout) {
       if (!customName.trim()) { alert(t("erreur_nom_vehicule")); return; }
-      updateProfile({ ...profile, vehicle:"custom", customName:customName.trim(), nominalVoltage:Number(customVoltage), capacityAh:Number(customCapacity), Idefault:Number(customCurrent), level:niveau });
+        updateProfile({ ...profile, vehicle:"custom", customName:customName.trim(), nominalVoltage:Number(customVoltage), capacityAh:Number(customCapacity), Idefault:Number(customCurrent), level:niveau, sohInitial:Number(sohInitial) });
     } else {
       if (!modeleSelectionne) { alert(t("erreur_choisir_modele")); return; }
       const v = VEHICLE_DATABASE.find(v=>v.id===modeleSelectionne);
       if (!v) return;
-      updateProfile({ ...profile, vehicle:v.id, customName:"", nominalVoltage:v.voltage, capacityAh:v.capacity, Idefault:v.current, level:niveau });
+            updateProfile({ ...profile, vehicle:v.id, customName:"", nominalVoltage:v.voltage, capacityAh:v.capacity, Idefault:v.current, level:niveau, sohInitial:Number(sohInitial) });
     }
     onRetour?.();
   }
@@ -78,6 +79,30 @@ function Profil({ t, onRetour }) {
       </div>
 
       {/* Mode liste / manuel */}
+                  {/* ✅ État de la batterie à l'installation (SoH initial) */}
+      <div style={g.card} className="space-y-3">
+        <label style={g.label}>🔋 {t("profil_etat_titre")}</label>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { val:100, label:t("profil_etat_neuve") },
+            { val:90,  label:t("profil_etat_bonne") },
+            { val:80,  label:t("profil_etat_usagee") },
+            { val:70,  label:t("profil_etat_fatiguee") },
+          ].map(s => (
+            <button key={s.val} onClick={()=>setSohInitial(s.val)}
+              className="py-2 rounded-xl text-sm font-semibold transition-all"
+              style={Number(sohInitial)===s.val
+                ? { background:"linear-gradient(135deg,rgba(56,189,248,0.2),rgba(99,102,241,0.15))", border:"0.5px solid rgba(56,189,248,0.4)", color:"#38bdf8" }
+                : { background:"rgba(255,255,255,0.04)", border:"0.5px solid rgba(255,255,255,0.08)", color:"rgba(148,197,240,0.4)" }}>
+              {s.label}
+            </button>
+          ))}
+        </div>
+        <p style={{ color:"rgba(148,197,240,0.45)", fontSize:"11px", lineHeight:1.6 }}>
+          💡 {t("profil_etat_aide")}
+        </p>
+      </div>
+
       <div style={g.card} className="space-y-4">
         <div className="flex gap-2">
           {[
