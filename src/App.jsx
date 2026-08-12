@@ -35,6 +35,15 @@ function isStandalonePWA() {
   const isIOSStandalone = window.navigator?.standalone === true;
   return Boolean(isStandaloneDisplay || isIOSStandalone);
 }
+// ✅ Détecte la langue du téléphone au tout premier lancement
+function detecterLangue() {
+  try {
+    const nav = (navigator.language || "fr").slice(0, 2).toLowerCase();
+    return ["fr", "en", "es", "de", "nl"].includes(nav) ? nav : "fr";
+  } catch {
+    return "fr";
+  }
+}
 
 function App() {
   const [showSplash, setShowSplash]         = useState(true);
@@ -56,7 +65,7 @@ function App() {
     nomBatterie: "Ma batterie",
     vehicule: "vae",
     mode: "debutant",
-    langue: "fr",
+        langue: detecterLangue(),
   });
   const [deferredPrompt, setDeferredPrompt] = useState(null);
 
