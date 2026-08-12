@@ -215,11 +215,16 @@ export function AppProvider({ children }) {
     setHistory(newBat.history);
   }
 
-  function deleteBattery(id) {
+    function deleteBattery(id) {
     if (batteries.length <= 1) return;
     const updated = batteries.filter(b => b.id !== id);
     setBatteries(updated);
     if (activeBatteryId === id) {
+      // ✅ Verrou robustesse : si une charge ou un repos était en cours
+      // sur cette batterie, on nettoie tout pour éviter une "charge fantôme"
+      if (activeCharge) {
+        setActiveCharge(null);
+      }
       const fallback = updated[0];
       setActiveBatteryId(fallback.id);
       setProfile(fallback.profile);
@@ -232,7 +237,7 @@ export function AppProvider({ children }) {
     setHistory(prev => [entry, ...prev].slice(0, 200));
   }
 
-  function updateProfile(newProfile) {
+    function updateProfile(newProfile) {
     setProfile(newProfile);
     let updatedCalibration = calibration;
     if (newProfile.nominalVoltage !== profile.nominalVoltage) {
@@ -241,7 +246,7 @@ export function AppProvider({ children }) {
     }
     setBatteries(prev => prev.map(b =>
       b.id === activeBatteryId
-        ? { ...b, profile: newProfile, calibration: updatedCalibration }
+        ? { ...b, name: newProfile.customName || b.name, profile: newProfile, calibration: updatedCalibration }
         : b
     ));
   }

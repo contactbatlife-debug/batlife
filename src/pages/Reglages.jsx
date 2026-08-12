@@ -50,14 +50,12 @@ function Reglages({ reglages, setReglages, t }) {
   const [pageActive, setPageActive] = useState("reglages");
   const [showAddForm, setShowAddForm] = useState(false);
   const [newBatteryName, setNewBatteryName] = useState("");
-  const { batteries=[], activeBatteryId, switchBattery, addBattery, deleteBattery, profile } = useApp();
+  const { batteries=[], activeBatteryId, switchBattery, addBattery, deleteBattery, profile, updateProfile } = useApp();
 
   useEffect(() => {
     if (profile?.customName && reglages.nomBatterie !== profile.customName)
       setReglages(prev => ({ ...prev, nomBatterie: profile.customName }));
   }, [activeBatteryId, profile]);
-
-  const changerValeur = (cle, valeur) => setReglages({ ...reglages, [cle]: valeur });
 
   const handleAddBattery = () => {
     if (!newBatteryName.trim()) return;
@@ -138,7 +136,7 @@ function Reglages({ reglages, setReglages, t }) {
                     border:isSelected?"0.5px solid rgba(56,189,248,0.4)":"var(--border-inner)",
                   }}>
                   <div className="flex items-center gap-2 min-w-0">
-                    <span>{isSelected?"⚡":"🚲"}</span>
+                    <span>{isSelected?"⚡":(b.profile?.vehicleType==="tae"?"🛴":"🚴")}</span>
                     <span className="truncate text-sm" style={{ color:isSelected?"var(--text-primary)":"var(--text-secondary)", fontWeight:isSelected?600:400 }}>
                       {b.name||t("sans_nom")}
                     </span>
@@ -158,10 +156,10 @@ function Reglages({ reglages, setReglages, t }) {
         )}
       </div>
 
-      {/* Nom batterie */}
+      {/* Nom de la batterie active */}
       <div style={g.card} className="space-y-2">
         <label style={g.label}>{t("nom_batterie")}</label>
-        <input type="text" value={reglages.nomBatterie||""} onChange={e=>changerValeur("nomBatterie",e.target.value)} style={g.input} />
+        <input type="text" value={profile?.customName||""} onChange={e=>updateProfile({ ...profile, customName: e.target.value })} style={g.input} />
       </div>
 
       {/* Type véhicule */}
@@ -172,9 +170,9 @@ function Reglages({ reglages, setReglages, t }) {
             { id:"vae", label:"🚴 VAE",         activeStyle:{ background:"linear-gradient(135deg,rgba(56,189,248,0.2),rgba(99,102,241,0.15))", border:"0.5px solid rgba(56,189,248,0.4)", color:"var(--accent-cyan)" } },
             { id:"tae", label:"🛴 Trottinette", activeStyle:{ background:"linear-gradient(135deg,rgba(168,85,247,0.2),rgba(99,102,241,0.15))", border:"0.5px solid rgba(168,85,247,0.4)", color:"var(--accent-purple)" } },
           ].map(v => (
-            <button key={v.id} onClick={()=>changerValeur("vehicule",v.id)}
+            <button key={v.id} onClick={()=>updateProfile({ ...profile, vehicleType: v.id })}
               className="flex-1 py-2 rounded-xl text-sm font-semibold transition-all"
-              style={reglages.vehicule===v.id ? v.activeStyle : { background:"var(--bg-card)", border:"var(--border-card)", color:"var(--text-muted)" }}>
+              style={(profile?.vehicleType||"vae")===v.id ? v.activeStyle : { background:"var(--bg-card)", border:"var(--border-card)", color:"var(--text-muted)" }}>
               {v.label}
             </button>
           ))}
@@ -186,17 +184,17 @@ function Reglages({ reglages, setReglages, t }) {
         <label style={g.label}>{t("mode_affichage")}</label>
         <div className="flex gap-2">
           {[
-            { id:"debutant", label:"🟢 %", activeStyle:{ background:"linear-gradient(135deg,rgba(34,197,94,0.2),rgba(16,185,129,0.12))", border:"0.5px solid rgba(34,197,94,0.4)", color:"var(--accent-green)" } },
+            { id:"beginner", label:"🟢 %", activeStyle:{ background:"linear-gradient(135deg,rgba(34,197,94,0.2),rgba(16,185,129,0.12))", border:"0.5px solid rgba(34,197,94,0.4)", color:"var(--accent-green)" } },
             { id:"expert",   label:"🔵 V", activeStyle:{ background:"linear-gradient(135deg,rgba(168,85,247,0.2),rgba(99,102,241,0.15))", border:"0.5px solid rgba(168,85,247,0.4)", color:"var(--accent-purple)" } },
           ].map(m => (
-            <button key={m.id} onClick={()=>changerValeur("mode",m.id)}
+            <button key={m.id} onClick={()=>updateProfile({ ...profile, level: m.id })}
               className="flex-1 py-2 rounded-xl text-sm font-semibold transition-all"
-              style={reglages.mode===m.id ? m.activeStyle : { background:"var(--bg-card)", border:"var(--border-card)", color:"var(--text-muted)" }}>
+              style={(profile?.level||"beginner")===m.id ? m.activeStyle : { background:"var(--bg-card)", border:"var(--border-card)", color:"var(--text-muted)" }}>
               {m.label}
             </button>
           ))}
         </div>
-        <p style={g.muted}>{reglages.mode==="debutant" ? t("debutant_desc") : t("expert_desc")}</p>
+        <p style={g.muted}>{(profile?.level||"beginner")==="beginner" ? t("debutant_desc") : t("expert_desc")}</p>
       </div>
 
       {/* À propos */}
