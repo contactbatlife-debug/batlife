@@ -215,16 +215,17 @@ export function AppProvider({ children }) {
     setHistory(newBat.history);
   }
 
-    function deleteBattery(id) {
+      function deleteBattery(id) {
     if (batteries.length <= 1) return;
     const updated = batteries.filter(b => b.id !== id);
     setBatteries(updated);
+
+    // ✅ Verrou robustesse : supprimer une batterie arrête toute charge
+    // ou repos en cours et efface les mémoires correspondantes
+    // (plus aucune "charge fantôme" possible)
+    setActiveCharge(null);
+
     if (activeBatteryId === id) {
-      // ✅ Verrou robustesse : si une charge ou un repos était en cours
-      // sur cette batterie, on nettoie tout pour éviter une "charge fantôme"
-      if (activeCharge) {
-        setActiveCharge(null);
-      }
       const fallback = updated[0];
       setActiveBatteryId(fallback.id);
       setProfile(fallback.profile);
