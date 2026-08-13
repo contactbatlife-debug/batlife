@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.batlife.twa",
+        "sha256_cert_fingerprints": ["3C:27:FD:21:95:85:93:51:70:4F:0E:CA:12:74:9C:4E:9D:84:E9:5A:94:D7:4B:75:31:6D:54:06:58:EC:6C:1C"]
+      }
+    }]
