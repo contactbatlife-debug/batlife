@@ -36,7 +36,7 @@ const resumeCards = (stats, sohColor, sohVal) => [
   { val:stats.totalCycles,      unit:"",    label:"🔋", labelKey:"stats_cycles",           color:"#60a5fa", rgb:"96,165,250"   },
   { val:stats.kmTotaux>0?stats.kmTotaux:"—", unit:stats.kmTotaux>0?" km":"", label:"🛣️", labelKey:"stats_km_totaux", color:"#4ade80", rgb:"74,222,128" },
   { val:stats.autonomieMoyenne>0?stats.autonomieMoyenne:"—", unit:stats.autonomieMoyenne>0?" km":"", label:"📏", labelKey:"stats_autonomie_moyenne", color:"#facc15", rgb:"250,204,21" },
-  { val:`${stats.sohMoyen}%`,   unit:"",    label:"🩺", labelKey:"stats_soh_moyen",         color:sohColor,  rgb: stats.sohMoyen>=85?"74,222,128":stats.sohMoyen>=65?"250,204,21":"248,113,113" },
+  { val:`${sohVal}%`,   unit:"",    label:"🩺", labelKey:"stats_soh_moyen",         color:sohColor,  rgb: sohVal>=85?"74,222,128":sohVal>=65?"250,204,21":"248,113,113" },
 ];
 
 function BadgeGlass({ bg, border, color, children }) {
@@ -579,7 +579,7 @@ function Stats({ t }) {
 
       {/* Cartes résumé */}
       <div className="grid grid-cols-2 gap-3">
-        {resumeCards(stats, sohColor, sohAffiche).map((item,i) => (
+            {resumeCards(stats, sohColor, sohAffiche).map((item,i) => (
           <div key={i} className="flex flex-col items-center justify-center text-center p-4 min-h-[110px]"
             style={{
               background:`rgba(${item.rgb},0.08)`,
