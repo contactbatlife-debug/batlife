@@ -167,8 +167,8 @@ function Reglages({ reglages, setReglages, t }) {
         <label style={g.label}>{t("type_vehicule")}</label>
         <div className="flex gap-2">
           {[
-            { id:"vae", label:"🚴 VAE",         activeStyle:{ background:"linear-gradient(135deg,rgba(56,189,248,0.2),rgba(99,102,241,0.15))", border:"0.5px solid rgba(56,189,248,0.4)", color:"var(--accent-cyan)" } },
-            { id:"tae", label:"🛴 Trottinette", activeStyle:{ background:"linear-gradient(135deg,rgba(168,85,247,0.2),rgba(99,102,241,0.15))", border:"0.5px solid rgba(168,85,247,0.4)", color:"var(--accent-purple)" } },
+            { id:"vae", label:"🚴 " + t("type_vae"),         activeStyle:{ background:"linear-gradient(135deg,rgba(56,189,248,0.2),rgba(99,102,241,0.15))", border:"0.5px solid rgba(56,189,248,0.4)", color:"var(--accent-cyan)" } },
+            { id:"tae", label:"🛴 " + t("type_trottinette"), activeStyle:{ background:"linear-gradient(135deg,rgba(168,85,247,0.2),rgba(99,102,241,0.15))", border:"0.5px solid rgba(168,85,247,0.4)", color:"var(--accent-purple)" } },
           ].map(v => (
             <button key={v.id} onClick={()=>updateProfile({ ...profile, vehicleType: v.id })}
               className="flex-1 py-2 rounded-xl text-sm font-semibold transition-all"

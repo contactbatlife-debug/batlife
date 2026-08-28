@@ -253,8 +253,17 @@ export function AppProvider({ children }) {
   }
 
   function setLang(lang) {
-    setProfile(prev => ({ ...prev, lang }));
-  }
+  setProfile(prev => {
+    const updated = { ...prev, lang };
+    // Propager dans les batteries pour que ce soit sauvegardé
+    setBatteries(prevBats => prevBats.map(b =>
+      b.id === activeBatteryId
+        ? { ...b, profile: updated }
+        : b
+    ));
+    return updated;
+  });
+}
 
   function showToast(badge) { setToast(badge); }
   function hideToast() { setToast(null); }
