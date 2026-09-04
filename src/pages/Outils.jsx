@@ -43,7 +43,8 @@ function Outils({ t, setPage }) {
   const d = vdb(tensionNominale);
   const vStockage = d?.storage || (tensionNominale === 48 ? 46.8 : 35.1);
 
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  const isTWA = document.referrer.startsWith('android-app://');
+  const isStandalone = isTWA;
   
   let resultatCalibration = null;
   if (tensionSaisie !== "") {
