@@ -43,6 +43,8 @@ function Outils({ t, setPage }) {
   const d = vdb(tensionNominale);
   const vStockage = d?.storage || (tensionNominale === 48 ? 46.8 : 35.1);
 
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  
   let resultatCalibration = null;
   if (tensionSaisie !== "") {
     const v = parseFloat(tensionSaisie);
@@ -238,7 +240,7 @@ function Outils({ t, setPage }) {
         borderTop:"0.5px solid rgba(234,179,8,0.55)",
         borderRadius:"20px", position:"relative", overflow:"hidden",
       }}>
-        <div style={{ position:"absolute",top:0,left:0,right:0,height:"1px", background:"linear-gradient(90deg,transparent,rgba(234,179,8,0.8),rgba(251,146,60,0.6),transparent)" }} />
+       <div style={{ position:"absolute",top:0,left:0,right:0,height:"1px", background:"linear-gradient(90deg,transparent,rgba(234,179,8,0.8),rgba(251,146,60,0.6),transparent)" }} />
         <div className="text-center">
           <div className="text-5xl mb-2">☕</div>
           <h3 className="text-xl font-black" style={{
@@ -247,11 +249,13 @@ function Outils({ t, setPage }) {
           }}>{t("soutenir_batlife")}</h3>
         </div>
         <p className="text-sm leading-relaxed text-center" style={{ color:"rgba(255,255,255,0.65)" }}>{t("soutenir_texte")}</p>
-        <a href="https://buymeacoffee.com/batlife" target="_blank" rel="noopener noreferrer"
-          className="block w-full font-bold py-3 rounded-full text-center transition-all"
-          style={{ background:"linear-gradient(135deg,#facc15,#fb923c)", color:"#000", boxShadow:"0 0 20px rgba(250,204,21,0.2)" }}>
-          ☕ {t("offrir_cafe")}
-        </a>
+        {!isStandalone && (
+          <a href="https://buymeacoffee.com/batlife" target="_blank" rel="noopener noreferrer"
+            className="block w-full font-bold py-3 rounded-full text-center transition-all"
+            style={{ background:"linear-gradient(135deg,#facc15,#fb923c)", color:"#000", boxShadow:"0 0 20px rgba(250,204,21,0.2)" }}>
+            ☕ {t("offrir_cafe")}
+          </a>
+        )}
         <button onClick={partager}
           className="block w-full font-semibold py-3 rounded-full transition-all"
           style={{ background:"linear-gradient(135deg,rgba(56,189,248,0.15),rgba(99,102,241,0.12))", border:"0.5px solid rgba(56,189,248,0.3)", color:"#38bdf8" }}>
